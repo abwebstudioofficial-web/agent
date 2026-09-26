@@ -1,8 +1,13 @@
 # Research Agent
 
-A command-line research agent powered by Claude. Ask it a question and it
-searches the web, reads the most useful pages, and writes a sourced report.
-Each report is saved as a Markdown file you can come back to.
+A research agent powered by Claude. Ask it a question and it searches the
+web, reads the most useful pages, and writes a sourced answer. It runs in two
+ways:
+
+- **In the terminal**, where each report is saved as a Markdown file you can
+  come back to.
+- **On a website**, as a chat panel that can also take users to the right page
+  on your site. See [Put it on a website](#put-it-on-a-website).
 
 ```
 $ research-agent "What's the current state of solid-state batteries for EVs?"
@@ -78,6 +83,25 @@ The agent can also read its past reports. Ask *"what have I researched about
 batteries before?"* or *"update last week's report on X"* and it will look them
 up.
 
+## Put it on a website
+
+`research_agent.web` wraps the agent in a small FastAPI service with a drop-in
+chat widget. It's set up for Logistix, a transportation ERP: it researches
+transportation and logistics topics, and it knows the site's pages from a site
+map, so "take me to shipment SH-1042" goes straight there.
+
+Try it locally with placeholder pages:
+
+```bash
+pip install -e '.[web]'
+research-agent-web          # then open http://127.0.0.1:8000/dashboard
+```
+
+[`docs/INTEGRATION.md`](docs/INTEGRATION.md) covers adding it to a real site:
+the site map, mounting the endpoints or proxying to them, restricting access to
+logged-in users, adding the widget, and giving it read-only access to your own
+data.
+
 ## How it works
 
 | File | Role |
@@ -86,6 +110,9 @@ up.
 | `research_agent/prompts.py` | The system prompt: how to research and how to write the answer. |
 | `research_agent/reports.py` | Saves reports, plus the `list_reports` and `read_report` tools Claude uses to read them back. |
 | `research_agent/cli.py` | The terminal interface. |
+| `research_agent/site.py` | The site map, the `navigate_to` tool, and the system prompt for the website version. |
+| `research_agent/web.py` | The web endpoints (streamed replies, per-user conversations) and the demo server. |
+| `research_agent/static/widget.js` | The chat panel for web pages. |
 
 A few details:
 
@@ -123,15 +150,14 @@ SERVER_TOOLS = [
 
 You can also cap the cost of each request with `"max_uses": 5`.
 
-**Add your own tool** (for example, querying an internal database):
-
-1. Add the tool's definition to `self.tools` in `ResearchAgent.__init__`. It
-   needs a `name`, a `description` that says *when* Claude should call it, an
-   `input_schema`, and `"eager_input_streaming": True`. The entries in
-   `ReportLibrary.tool_definitions` are examples.
-2. In `ResearchAgent._run_tools`, route calls to that tool name to your code.
-   Right now every call goes to `ReportLibrary.run_tool`. Validate the input
-   before you use it, and return `(result_text, is_error)`.
+**Add your own tool** (for example, querying an internal database): write a
+class with a `tool_definitions` property and a `run_tool(name, tool_input)`
+method that returns `(result_text, is_error)`, then pass an instance in
+`ResearchAgent(client, tools=[...])`. `ReportLibrary` in `reports.py` and
+`SiteNavigator` in `site.py` are working examples. Each definition needs a
+`name`, a `description` that says *when* Claude should call it, an
+`input_schema`, and `"eager_input_streaming": True`. Validate the input before
+you use it, because it comes from the model.
 
 **Use a different model.** Pass `model=` to `ResearchAgent`, or change
 `DEFAULT_MODEL` in `agent.py`. Older models may not accept the `fallbacks`

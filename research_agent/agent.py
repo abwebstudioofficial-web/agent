@@ -5,19 +5,19 @@ pages inside a single API call. This loop only has to:
 
 - stream each response to a Display so the user can watch progress,
 - resume turns the server paused (stop_reason "pause_turn"),
-- run the client-side tools (reading saved reports) and send their results back,
+- run client-side tools (your own code, e.g. reading saved reports) and send results back,
 - keep the conversation history valid for follow-up questions.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, Sequence
 
 import anthropic
 
 from .prompts import build_system_prompt
-from .reports import ReportLibrary, Source, collect_sources
+from .reports import Source, collect_sources
 
 DEFAULT_MODEL = "claude-opus-5"
 DEFAULT_EFFORT = "high"
@@ -59,6 +59,17 @@ class Display(Protocol):
     def tool_error(self, name: str, error: str) -> None: ...
     def fallback(self, from_model: str, to_model: str) -> None: ...
     def notice(self, message: str) -> None: ...
+
+
+class ToolProvider(Protocol):
+    """A group of client-side tools: their definitions plus the code that runs them."""
+
+    @property
+    def tool_definitions(self) -> list[dict[str, Any]]: ...
+
+    def run_tool(self, name: str, tool_input: Any) -> tuple[str, bool]:
+        """Run one call and return (result text, is_error)."""
+        ...
 
 
 class NullDisplay:
@@ -104,8 +115,9 @@ class ResearchAgent:
     def __init__(
         self,
         client: anthropic.Anthropic,
-        library: ReportLibrary,
         *,
+        tools: Sequence[ToolProvider] = (),
+        system: str | None = None,
         model: str = DEFAULT_MODEL,
         effort: str = DEFAULT_EFFORT,
         show_thinking: bool = False,
@@ -113,14 +125,18 @@ class ResearchAgent:
         max_steps: int = MAX_STEPS,
     ):
         self.client = client
-        self.library = library
         self.model = model
         self.effort = effort
         self.show_thinking = show_thinking
         self.display: Display = display or NullDisplay()
         self.max_steps = max_steps
-        self.system = build_system_prompt()
-        self.tools = SERVER_TOOLS + library.tool_definitions
+        self.system = system or build_system_prompt()
+        self.tools = list(SERVER_TOOLS)
+        self._tool_owners: dict[str, ToolProvider] = {}
+        for provider in tools:
+            for definition in provider.tool_definitions:
+                self.tools.append(definition)
+                self._tool_owners[definition["name"]] = provider
         self.messages: list[dict[str, Any]] = []
 
     def reset(self) -> None:
@@ -241,7 +257,11 @@ class ResearchAgent:
         # All results go back in a single user message.
         results = []
         for block in tool_uses:
-            content, is_error = self.library.run_tool(block.name, block.input)
+            owner = self._tool_owners.get(block.name)
+            if owner is None:
+                content, is_error = f"Unknown tool: {block.name}", True
+            else:
+                content, is_error = owner.run_tool(block.name, block.input)
             result: dict[str, Any] = {"type": "tool_result", "tool_use_id": block.id, "content": content}
             if is_error:
                 result["is_error"] = True

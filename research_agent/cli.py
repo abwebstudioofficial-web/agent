@@ -116,8 +116,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def answer_one(agent: ResearchAgent, display: TerminalDisplay, question: str, save: bool) -> bool:
-    """Run one question and print the result. Returns False if it failed."""
+def answer_one(
+    agent: ResearchAgent, display: TerminalDisplay, question: str, library: ReportLibrary | None
+) -> bool:
+    """Run one question and print the result. Saves the report if `library` is given.
+
+    Returns False if the question failed.
+    """
     try:
         answer = agent.ask(question)
     except KeyboardInterrupt:
@@ -158,8 +163,8 @@ def answer_one(agent: ResearchAgent, display: TerminalDisplay, question: str, sa
 
     display.finish()
     saved_to = None
-    if save and answer.report:
-        saved_to = agent.library.save(answer.question, answer.report, answer.sources, answer.model)
+    if library and answer.report:
+        saved_to = library.save(answer.question, answer.report, answer.sources, answer.model)
     display.summary(summary_line(answer, saved_to))
     return True
 
@@ -180,7 +185,7 @@ def _plural(n: int, one: str, many: str | None = None) -> str:
     return f"{n} {one if n == 1 else (many or one + 's')}"
 
 
-def repl(agent: ResearchAgent, display: TerminalDisplay, save: bool) -> None:
+def repl(agent: ResearchAgent, display: TerminalDisplay, library: ReportLibrary | None) -> None:
     print(HELP)
     while True:
         try:
@@ -200,7 +205,7 @@ def repl(agent: ResearchAgent, display: TerminalDisplay, save: bool) -> None:
             print("Started a new conversation.")
             continue
         print()
-        answer_one(agent, display, line, save)
+        answer_one(agent, display, line, library)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -211,18 +216,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: could not load credentials: {e}", file=sys.stderr)
         return 1
     display = TerminalDisplay()
+    library = ReportLibrary(args.reports_dir)
     agent = ResearchAgent(
         client,
-        ReportLibrary(args.reports_dir),
+        tools=[library],
         effort=args.effort,
         show_thinking=args.show_thinking,
         display=display,
     )
-    save = not args.no_save
+    save_to = None if args.no_save else library
 
     if args.question:
-        return 0 if answer_one(agent, display, " ".join(args.question), save) else 1
-    repl(agent, display, save)
+        return 0 if answer_one(agent, display, " ".join(args.question), save_to) else 1
+    repl(agent, display, save_to)
     return 0
 
 

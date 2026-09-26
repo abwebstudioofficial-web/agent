@@ -51,7 +51,7 @@ def library(tmp_path) -> ReportLibrary:
 
 def make_agent(api, library, **kwargs) -> tuple[ResearchAgent, RecordingDisplay]:
     display = RecordingDisplay()
-    return ResearchAgent(api.client(), library, display=display, **kwargs), display
+    return ResearchAgent(api.client(), tools=[library], display=display, **kwargs), display
 
 
 def test_answers_with_web_tools_and_collects_sources(api, library):
