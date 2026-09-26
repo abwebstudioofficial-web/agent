@@ -1,0 +1,17 @@
+[
+  {"path": "/dashboard", "title": "Dashboard", "description": "overview of active loads, alerts and key numbers"},
+  {"path": "/shipments", "title": "Shipments", "description": "search and filter all shipments by status, customer, lane or date, e.g. ?status=delayed"},
+  {"path": "/shipments/new", "title": "New shipment", "description": "book a new load"},
+  {"path": "/shipments/{id}", "title": "Shipment details", "description": "tracking, stops, documents and charges for one shipment"},
+  {"path": "/dispatch", "title": "Dispatch board", "description": "assign drivers and trucks to loads"},
+  {"path": "/tracking", "title": "Live tracking", "description": "map of trucks and shipments in transit"},
+  {"path": "/fleet", "title": "Fleet", "description": "trucks and trailers, maintenance and inspections"},
+  {"path": "/drivers", "title": "Drivers", "description": "driver profiles, licenses and hours-of-service logs"},
+  {"path": "/carriers", "title": "Carriers", "description": "carrier directory, onboarding, insurance and safety ratings"},
+  {"path": "/customers", "title": "Customers", "description": "shipper accounts and contacts"},
+  {"path": "/rates", "title": "Rates & quotes", "description": "lane rates, fuel surcharges and the quote builder"},
+  {"path": "/invoices", "title": "Invoices", "description": "billing, payments and carrier settlements"},
+  {"path": "/compliance", "title": "Compliance", "description": "DOT and FMCSA documents, IFTA fuel tax filings and audits"},
+  {"path": "/reports", "title": "Reports", "description": "analytics on volume, on-time performance, costs and margins"},
+  {"path": "/settings", "title": "Settings", "description": "company profile, users and integrations"}
+]
